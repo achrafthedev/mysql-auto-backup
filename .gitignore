@@ -1,0 +1,70 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Configuration files (contains sensitive data)
+config.json
+
+# Backup files
+backups/
+*.sql
+*.sql.gz
+
+# Log files
+logs/
+*.log
+
+# PM2 files
+.pm2/
+ecosystem.config.js
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+.cache/
+
+# Archive files
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+
+# Documentation backup
+README.backup.md
+MANUAL-SETUP.backup.md
+
+# Test files
+test/
+*.test.js
