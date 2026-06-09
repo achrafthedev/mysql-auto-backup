@@ -1,43 +1,44 @@
-const fs = require('fs-extra');
-const path = require('path');
-const colors = require('colors');
+import { readdir, stat, rm, mkdir } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import path from 'node:path';
+import pc from 'picocolors';
 
-class BackupManager {
+export default class BackupManager {
     constructor(backupDir) {
         this.backupDir = backupDir;
     }
 
     async ensureBackupDirectory() {
         try {
-            await fs.ensureDir(this.backupDir);
-            console.log('📁 Backup directory ensured'.blue);
+            await mkdir(this.backupDir, { recursive: true });
+            console.log(pc.blue('📁 Backup directory ensured'));
         } catch (error) {
-            console.log('❌ Failed to create backup directory:'.red, error.message);
+            console.log(pc.red(`❌ Failed to create backup directory: ${error.message}`));
             throw error;
         }
     }
 
     async getBackupFiles() {
         try {
-            const files = await fs.readdir(this.backupDir);
-            const backupFiles = files
-                .filter(file => file.endsWith('.sql'))
-                .map(file => {
-                    const filePath = path.join(this.backupDir, file);
-                    const stats = fs.statSync(filePath);
-                    return {
-                        name: file,
-                        path: filePath,
-                        size: stats.size,
-                        created: stats.birthtime,
-                        modified: stats.mtime
-                    };
-                })
-                .sort((a, b) => b.created - a.created);
+            const files = await readdir(this.backupDir);
+            const sqlFiles = files.filter(file => file.endsWith('.sql'));
 
-            return backupFiles;
+            const backupFiles = await Promise.all(sqlFiles.map(async file => {
+                const filePath = path.join(this.backupDir, file);
+                const stats = await stat(filePath);
+                return {
+                    name: file,
+                    path: filePath,
+                    size: stats.size,
+                    created: stats.birthtime,
+                    modified: stats.mtime
+                };
+            }));
+
+            // Sort newest first
+            return backupFiles.sort((a, b) => b.created - a.created);
         } catch (error) {
-            console.log('⚠️ Failed to get backup files:'.yellow, error.message);
+            console.log(pc.yellow(`⚠️ Failed to get backup files: ${error.message}`));
             return [];
         }
     }
@@ -49,17 +50,17 @@ class BackupManager {
             if (backupFiles.length > maxBackups) {
                 const filesToDelete = backupFiles.slice(maxBackups);
                 
-                console.log(`🧹 Cleaning up ${filesToDelete.length} old backup(s)...`.yellow);
+                console.log(pc.yellow(`🧹 Cleaning up ${filesToDelete.length} old backup(s)...`));
                 
                 for (const file of filesToDelete) {
-                    await fs.remove(file.path);
-                    console.log(`🗑️ Deleted: ${file.name}`.gray);
+                    await rm(file.path, { force: true });
+                    console.log(pc.gray(`🗑️ Deleted: ${file.name}`));
                 }
                 
-                console.log('✅ Backup cleanup completed'.green);
+                console.log(pc.green('✅ Backup cleanup completed'));
             }
         } catch (error) {
-            console.log('⚠️ Failed to cleanup old backups:'.yellow, error.message);
+            console.log(pc.yellow(`⚠️ Failed to cleanup old backups: ${error.message}`));
         }
     }
 
@@ -70,7 +71,7 @@ class BackupManager {
             if (backupFiles.length === 0) {
                 return {
                     totalBackups: 0,
-                    totalSize: 0,
+                    totalSize: '0 Bytes',
                     latestBackup: null,
                     oldestBackup: null
                 };
@@ -88,7 +89,7 @@ class BackupManager {
                 files: backupFiles
             };
         } catch (error) {
-            console.log('⚠️ Failed to get backup stats:'.yellow, error.message);
+            console.log(pc.yellow(`⚠️ Failed to get backup stats: ${error.message}`));
             return null;
         }
     }
@@ -105,16 +106,26 @@ class BackupManager {
 
     async validateBackupFile(filePath) {
         try {
-            const stats = await fs.stat(filePath);
+            const stats = await stat(filePath);
             
             if (stats.size === 0) {
                 throw new Error('Backup file is empty');
             }
 
-            const content = await fs.readFile(filePath, 'utf8');
-            
-            if (!content.includes('-- MySQL dump') && !content.includes('CREATE TABLE')) {
-                throw new Error('Backup file does not appear to be a valid MySQL dump');
+            // Stream checking: Only read first 1KB of the dump file to verify the header
+            const stream = createReadStream(filePath, { start: 0, end: 1024, encoding: 'utf8' });
+            let headText = '';
+            for await (const chunk of stream) {
+                headText += chunk;
+                if (headText.length >= 1024) break;
+            }
+
+            const isSqlDump = headText.includes('-- MySQL dump') || 
+                              headText.includes('CREATE TABLE') || 
+                              headText.includes('-- MariaDB dump');
+
+            if (!isSqlDump) {
+                throw new Error('Backup file does not appear to be a valid MySQL/MariaDB dump');
             }
 
             return {
@@ -131,10 +142,7 @@ class BackupManager {
     }
 
     async compressBackup(filePath) {
-        // Optional: Add compression functionality using zlib
-        // For now, we'll just return the original file path
+        // Optional: Add compression functionality using zlib in future
         return filePath;
     }
 }
-
-module.exports = BackupManager;

@@ -1,33 +1,36 @@
-const fs = require('fs-extra');
-const path = require('path');
-const colors = require('colors');
+import { readFile, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import pc from 'picocolors';
 
-class ConfigManager {
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export default class ConfigManager {
     constructor() {
         this.configPath = path.join(__dirname, '..', 'config.json');
     }
 
     async loadConfig() {
         try {
-            if (await fs.pathExists(this.configPath)) {
-                const config = await fs.readJson(this.configPath);
-                console.log('✅ Configuration loaded successfully'.green);
-                return config;
-            }
-            return null;
+            const data = await readFile(this.configPath, 'utf8');
+            const config = JSON.parse(data);
+            return config;
         } catch (error) {
-            console.log('⚠️ Failed to load configuration:'.yellow, error.message);
+            if (error.code === 'ENOENT') {
+                return null;
+            }
+            console.log(pc.yellow(`⚠️ Failed to load configuration: ${error.message}`));
             return null;
         }
     }
 
     async saveConfig(config) {
         try {
-            await fs.writeJson(this.configPath, config, { spaces: 2 });
-            console.log('✅ Configuration saved successfully'.green);
+            await writeFile(this.configPath, JSON.stringify(config, null, 2), 'utf8');
+            console.log(pc.green('✅ Configuration saved successfully'));
             return true;
         } catch (error) {
-            console.log('❌ Failed to save configuration:'.red, error.message);
+            console.log(pc.red(`❌ Failed to save configuration: ${error.message}`));
             return false;
         }
     }
@@ -50,7 +53,7 @@ class ConfigManager {
         }
 
         // Password can be empty string, but must exist as a property
-        if (!config.database.hasOwnProperty('password')) {
+        if (!Object.prototype.hasOwnProperty.call(config.database, 'password')) {
             throw new Error('Missing required database field: password');
         }
 
@@ -92,5 +95,3 @@ class ConfigManager {
         };
     }
 }
-
-module.exports = ConfigManager;

@@ -1,15 +1,42 @@
-const cron = require('node-cron');
-const path = require('path');
-const colors = require('colors');
-const moment = require('moment');
+import cron from 'node-cron';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
+import pc from 'picocolors';
 
 // Import all modules
-const DatabaseManager = require('./database');
-const GoFileUploader = require('./gofile');
-const DiscordNotifier = require('./discord');
-const ConfigManager = require('./config');
-const InputHandler = require('./input');
-const BackupManager = require('./backup');
+import DatabaseManager from './database.js';
+import GoFileUploader from './gofile.js';
+import DiscordNotifier from './discord.js';
+import ConfigManager from './config.js';
+import InputHandler from './input.js';
+import BackupManager from './backup.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function formatDate(date = new Date()) {
+    const pad = (num) => String(num).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    const mm = pad(date.getMonth() + 1);
+    const dd = pad(date.getDate());
+    const hh = pad(date.getHours());
+    const min = pad(date.getMinutes());
+    const sec = pad(date.getSeconds());
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}:${sec}`;
+}
+
+function formatDuration(ms) {
+    if (ms < 1000) return `${ms}ms`;
+    const seconds = ((ms / 1000) % 60).toFixed(1);
+    const minutes = Math.floor((ms / (1000 * 60)) % 60);
+    const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
+    
+    return [
+        hours > 0 ? `${hours}h` : '',
+        minutes > 0 ? `${minutes}m` : '',
+        `${seconds}s`
+    ].filter(Boolean).join(' ');
+}
 
 class BitoraBackup {
     constructor() {
@@ -33,17 +60,17 @@ class BitoraBackup {
             this.config = await this.configManager.loadConfig();
             
             if (!this.config) {
-                console.log('🔧 No configuration found. Starting setup...'.yellow);
+                console.log(pc.yellow('🔧 No configuration found. Starting setup...'));
                 await this.setupConfiguration();
             } else {
-                console.log('✅ Configuration loaded successfully'.green);
+                console.log(pc.green('✅ Configuration loaded successfully'));
                 
                 // Validate existing config
                 try {
                     this.configManager.validateConfig(this.config);
                 } catch (error) {
-                    console.log('⚠️ Configuration validation failed:'.yellow, error.message);
-                    console.log('🔧 Please reconfigure the application'.yellow);
+                    console.log(pc.yellow(`⚠️ Configuration validation failed: ${error.message}`));
+                    console.log(pc.yellow('🔧 Please reconfigure the application'));
                     await this.setupConfiguration();
                 }
             }
@@ -59,7 +86,7 @@ class BitoraBackup {
             // Ensure backup directory
             await this.backupManager.ensureBackupDirectory();
             
-            console.log('\n🚀 Starting BitoraBackup Bot...'.cyan.bold);
+            console.log(pc.cyan(pc.bold('\n🚀 Starting BitoraBackup Bot...')));
             
             // Send startup notification
             await this.discord.sendStartupNotification(this.config.database);
@@ -71,24 +98,24 @@ class BitoraBackup {
             this.keepAlive();
             
         } catch (error) {
-            console.log('❌ Initialization failed:'.red, error.message);
+            console.log(pc.red(`❌ Initialization failed: ${error.message}`));
             process.exit(1);
         }
     }
 
     printBanner() {
         console.log(`
-${'╔══════════════════════════════════════════════╗'.cyan}
-${'║'.cyan}            🚀 ${'BitoraBackup Bot'.white.bold}               ${'║'.cyan}
-${'║'.cyan}        ${'Automated MySQL Backup System'.gray}        ${'║'.cyan}
-${'║'.cyan}     ${'with GoFile Upload & Discord Alerts'.gray}     ${'║'.cyan}
-${'╚══════════════════════════════════════════════╝'.cyan}
+${pc.cyan('╔══════════════════════════════════════════════╗')}
+${pc.cyan('║')}            🚀 ${pc.bold(pc.white('BitoraBackup Bot'))}               ${pc.cyan('║')}
+${pc.cyan('║')}        ${pc.gray('Automated MySQL Backup System')}        ${pc.cyan('║')}
+${pc.cyan('║')}     ${pc.gray('with GoFile Upload & Discord Alerts')}     ${pc.cyan('║')}
+${pc.cyan('╚══════════════════════════════════════════════╝')}
 `);
     }
 
     async setupConfiguration() {
         try {
-            console.log('\n🎯 Welcome to BitoraBackup Configuration Setup'.cyan.bold);
+            console.log(pc.cyan(pc.bold('\n🎯 Welcome to BitoraBackup Configuration Setup')));
             
             // Get database config
             const dbConfig = await this.inputHandler.getDatabaseConfig();
@@ -114,7 +141,7 @@ ${'╚════════════════════════�
             const confirmed = await this.inputHandler.confirmConfig(config);
             
             if (!confirmed) {
-                console.log('❌ Configuration cancelled. Exiting...'.red);
+                console.log(pc.red('❌ Configuration cancelled. Exiting...'));
                 process.exit(0);
             }
             
@@ -122,16 +149,16 @@ ${'╚════════════════════════�
             await this.configManager.saveConfig(config);
             this.config = config;
             
-            console.log('✅ Configuration setup completed successfully!'.green);
+            console.log(pc.green('✅ Configuration setup completed successfully!'));
             
         } catch (error) {
-            console.log('❌ Configuration setup failed:'.red, error.message);
+            console.log(pc.red(`❌ Configuration setup failed: ${error.message}`));
             process.exit(1);
         }
     }
 
     async testConnections() {
-        console.log('\n🔍 Testing connections...'.yellow);
+        console.log(pc.yellow('\n🔍 Testing connections...'));
         
         // Test database connection
         const dbConnected = await this.dbManager.connect();
@@ -142,14 +169,15 @@ ${'╚════════════════════════�
         // Test Discord webhook
         const discordWorking = await this.discord.testWebhook();
         if (!discordWorking) {
-            console.log('⚠️ Discord webhook test failed, but continuing...'.yellow);
+            console.log(pc.yellow('⚠️ Discord webhook test failed, but continuing...'));
         }
         
-        console.log('✅ Connection tests completed'.green);
+        console.log(pc.green('✅ Connection tests completed'));
     }
+
     startScheduler() {
         try {
-            console.log(`⏰ Setting up backup schedule: ${this.config.backup.schedule}`.blue);
+            console.log(pc.blue(`⏰ Setting up backup schedule: ${this.config.backup.schedule}`));
             
             this.cronJob = cron.schedule(this.config.backup.schedule, async () => {
                 await this.performBackup();
@@ -158,32 +186,32 @@ ${'╚════════════════════════�
                 timezone: "America/New_York"
             });
             
-            console.log('✅ Backup scheduler started successfully'.green);
+            console.log(pc.green('✅ Backup scheduler started successfully'));
             
             // Perform initial backup
             setTimeout(async () => {
-                console.log('🔄 Performing initial backup...'.yellow);
+                console.log(pc.yellow('🔄 Performing initial backup...'));
                 await this.performBackup();
             }, 5000);
             
         } catch (error) {
-            console.log('❌ Failed to start scheduler:'.red, error.message);
+            console.log(pc.red(`❌ Failed to start scheduler: ${error.message}`));
             throw error;
         }
     }
 
     async performBackup() {
         if (this.isRunning) {
-            console.log('⚠️ Backup already in progress, skipping...'.yellow);
+            console.log(pc.yellow('⚠️ Backup already in progress, skipping...'));
             return;
         }
 
         this.isRunning = true;
-        const startTime = moment();
+        const startTime = Date.now();
         
-        console.log(`\n${'='.repeat(60)}`.cyan);
-        console.log(`🔄 Starting backup process at ${startTime.format('YYYY-MM-DD HH:mm:ss')}`.cyan.bold);
-        console.log(`${'='.repeat(60)}`.cyan);
+        console.log(`\n${pc.cyan('='.repeat(60))}`);
+        console.log(pc.cyan(pc.bold(`🔄 Starting backup process at ${formatDate(new Date(startTime))}`)));
+        console.log(`${pc.cyan('='.repeat(60))}`);
 
         let backupInfo = {
             success: false,
@@ -209,7 +237,7 @@ ${'╚════════════════════════�
                 throw new Error(`Backup validation failed: ${validation.error}`);
             }
 
-            backupInfo.fileName = require('path').basename(backupPath);
+            backupInfo.fileName = path.basename(backupPath);
             
             // Upload to GoFile
             const uploadResult = await this.uploader.uploadFile(backupPath);
@@ -218,7 +246,7 @@ ${'╚════════════════════════�
                 backupInfo.success = true;
                 backupInfo.downloadLink = uploadResult.downloadLink;
                 
-                console.log('🎉 Backup process completed successfully!'.green.bold);
+                console.log(pc.green(pc.bold('🎉 Backup process completed successfully!')));
                 
                 // Cleanup old backups if enabled
                 if (this.config.backup.cleanupOldBackups) {
@@ -230,18 +258,17 @@ ${'╚════════════════════════�
             }
 
         } catch (error) {
-            console.log('❌ Backup process failed:'.red, error.message);
+            console.log(pc.red(`❌ Backup process failed: ${error.message}`));
             backupInfo.error = error.message;
         }
 
         // Send Discord notification
         await this.discord.sendBackupNotification(backupInfo);
         
-        const endTime = moment();
-        const duration = moment.duration(endTime.diff(startTime));
+        const duration = Date.now() - startTime;
         
-        console.log(`⏱️ Backup process completed in ${duration.humanize()}`.blue);
-        console.log(`${'='.repeat(60)}`.cyan);
+        console.log(pc.blue(`⏱️ Backup process completed in ${formatDuration(duration)}`));
+        console.log(`${pc.cyan('='.repeat(60))}`);
         
         this.isRunning = false;
 
@@ -250,17 +277,17 @@ ${'╚════════════════════════�
     }
 
     keepAlive() {
-        console.log('\n🟢 BitoraBackup Bot is now running in the background'.green.bold);
-        console.log('📅 Next backup scheduled for:'.blue, this.getNextBackupTime());
-        console.log('📊 Use Ctrl+C to stop the bot'.gray);
+        console.log(pc.green(pc.bold('\n🟢 BitoraBackup Bot is now running in the background')));
+        console.log(pc.blue(`📅 Next backup scheduled for: ${this.getNextBackupTime()}`));
+        console.log(pc.gray('📊 Use Ctrl+C to stop the bot'));
         
         // Handle graceful shutdown
         process.on('SIGINT', async () => {
-            console.log('\n🛑 Shutting down BitoraBackup Bot...'.yellow);
+            console.log(pc.yellow('\n🛑 Shutting down BitoraBackup Bot...'));
             
             if (this.cronJob) {
                 this.cronJob.stop();
-                console.log('⏰ Scheduler stopped'.blue);
+                console.log(pc.blue('⏰ Scheduler stopped'));
             }
             
             if (this.dbManager) {
@@ -271,7 +298,7 @@ ${'╚════════════════════════�
                 this.inputHandler.close();
             }
             
-            console.log('👋 BitoraBackup Bot stopped successfully'.green);
+            console.log(pc.green('👋 BitoraBackup Bot stopped successfully'));
             process.exit(0);
         });
 
@@ -282,51 +309,42 @@ ${'╚════════════════════════�
     }
 
     getNextBackupTime() {
-        try {
-            const cronParser = require('node-cron');
-            // This is a simplified way to show next run time
-            return 'Next scheduled backup according to cron schedule';
-        } catch (error) {
-            return 'Unable to determine next backup time';
-        }
+        return `Cron schedule (${this.config.backup.schedule})`;
     }
 
     async getStatus() {
         const stats = await this.backupManager.getBackupStats();
         
-        console.log('\n📊 BitoraBackup Status'.cyan.bold);
-        console.log('═'.repeat(40).cyan);
+        console.log(pc.cyan(pc.bold('\n📊 BitoraBackup Status')));
+        console.log(pc.cyan('═'.repeat(40)));
         
         if (stats) {
-            console.log(`Total Backups: ${stats.totalBackups}`.white);
-            console.log(`Total Size: ${stats.totalSize}`.white);
-            console.log(`Latest Backup: ${stats.latestBackup || 'None'}`.white);
-            console.log(`Oldest Backup: ${stats.oldestBackup || 'None'}`.white);
+            console.log(pc.white(`Total Backups: ${stats.totalBackups}`));
+            console.log(pc.white(`Total Size: ${stats.totalSize}`));
+            console.log(pc.white(`Latest Backup: ${stats.latestBackup || 'None'}`));
+            console.log(pc.white(`Oldest Backup: ${stats.oldestBackup || 'None'}`));
         }
         
-        console.log(`Database: ${this.config.database.database}`.white);
-        console.log(`Schedule: ${this.config.backup.schedule}`.white);
-        console.log(`Status: ${this.isRunning ? 'Running' : 'Idle'}`.white);
+        console.log(pc.white(`Database: ${this.config.database.database}`));
+        console.log(pc.white(`Schedule: ${this.config.backup.schedule}`));
+        console.log(pc.white(`Status: ${this.isRunning ? 'Running' : 'Idle'}`));
     }
 
     async autoStartWithPM2() {
         try {
             // Check if we're already running under PM2
             if (process.env.PM2_HOME || process.env.pm_id !== undefined) {
-                console.log('ℹ️ Already running with PM2, skipping auto-start'.blue);
+                console.log(pc.blue('ℹ️ Already running with PM2, skipping auto-start'));
                 return;
             }
 
-            // Check if PM2 is available
-            const { spawn } = require('child_process');
-            
-            console.log('\n🔄 Checking if PM2 is available...'.yellow);
+            console.log(pc.yellow('\n🔄 Checking if PM2 is available...'));
             
             const pm2Check = spawn('pm2', ['--version'], { shell: true });
             
             pm2Check.on('close', async (code) => {
                 if (code === 0) {
-                    console.log('✅ PM2 is available, starting with PM2...'.green);
+                    console.log(pc.green('✅ PM2 is available, starting with PM2...'));
                     
                     // Check if already running in PM2
                     const pm2List = spawn('pm2', ['list', 'BitoraBackup'], { shell: true });
@@ -338,12 +356,12 @@ ${'╚════════════════════════�
                     
                     pm2List.on('close', (listCode) => {
                         if (!pm2Output.includes('BitoraBackup') || pm2Output.includes('stopped')) {
-                            console.log('🚀 Starting BitoraBackup with PM2 in 5 seconds...'.cyan);
-                            console.log('📝 This will run the application in the background'.gray);
-                            console.log('🎮 Use run.bat to manage the application'.gray);
+                            console.log(pc.cyan('🚀 Starting BitoraBackup with PM2 in 5 seconds...'));
+                            console.log(pc.gray('📝 This will run the application in the background'));
+                            console.log(pc.gray('🎮 Use run.bat to manage the application'));
                             
                             setTimeout(() => {
-                                const pm2Start = spawn('pm2', ['start', 'ecosystem.config.js'], { 
+                                const pm2Start = spawn('pm2', ['start', 'ecosystem.config.cjs'], { 
                                     shell: true,
                                     detached: true,
                                     stdio: 'ignore'
@@ -352,24 +370,24 @@ ${'╚════════════════════════�
                                 pm2Start.unref();
                                 
                                 setTimeout(() => {
-                                    console.log('\n✅ BitoraBackup started with PM2!'.green.bold);
-                                    console.log('🎮 Use run.bat for management or pm2 logs BitoraBackup for logs'.cyan);
+                                    console.log(pc.green(pc.bold('\n✅ BitoraBackup started with PM2!')));
+                                    console.log(pc.cyan('🎮 Use run.bat for management or pm2 logs BitoraBackup for logs'));
                                     process.exit(0);
                                 }, 2000);
                                 
                             }, 5000);
                         } else {
-                            console.log('ℹ️ BitoraBackup already running with PM2'.blue);
+                            console.log(pc.blue('ℹ️ BitoraBackup already running with PM2'));
                         }
                     });
                 } else {
-                    console.log('⚠️ PM2 not available, continuing with direct execution'.yellow);
+                    console.log(pc.yellow('⚠️ PM2 not available, continuing with direct execution'));
                 }
             });
 
         } catch (error) {
-            console.log('⚠️ Auto-start with PM2 failed:'.yellow, error.message);
-            console.log('ℹ️ Continuing with direct execution'.blue);
+            console.log(pc.yellow(`⚠️ Auto-start with PM2 failed: ${error.message}`));
+            console.log(pc.blue('ℹ️ Continuing with direct execution'));
         }
     }
 }
@@ -379,19 +397,19 @@ const app = new BitoraBackup();
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-    console.log('❌ Unhandled Rejection at:'.red, promise, 'reason:'.red, reason);
+    console.log(pc.red('❌ Unhandled Rejection at:'), promise, pc.red('reason:'), reason);
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-    console.log('❌ Uncaught Exception:'.red, error.message);
+    console.log(pc.red(`❌ Uncaught Exception: ${error.message}`));
     process.exit(1);
 });
 
 // Initialize and start the application
 app.initialize().catch((error) => {
-    console.log('❌ Application failed to start:'.red, error.message);
+    console.log(pc.red(`❌ Application failed to start: ${error.message}`));
     process.exit(1);
 });
 
-module.exports = BitoraBackup;
+export default BitoraBackup;

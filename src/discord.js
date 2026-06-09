@@ -1,14 +1,13 @@
-const axios = require('axios');
-const colors = require('colors');
+import pc from 'picocolors';
 
-class DiscordNotifier {
+export default class DiscordNotifier {
     constructor(webhookUrl) {
         this.webhookUrl = webhookUrl;
     }
 
     async sendBackupNotification(backupInfo) {
         try {
-            console.log('📨 Sending Discord notification...'.yellow);
+            console.log(pc.yellow('📨 Sending Discord notification...'));
             
             const embed = {
                 title: "🚀 BitoraBackup - Database Backup Complete",
@@ -27,7 +26,7 @@ class DiscordNotifier {
                     },
                     {
                         name: "📁 File Name",
-                        value: backupInfo.fileName,
+                        value: backupInfo.fileName || 'N/A',
                         inline: true
                     }
                 ],
@@ -59,20 +58,22 @@ class DiscordNotifier {
                 embeds: [embed]
             };
 
-            const response = await axios.post(this.webhookUrl, payload, {
+            const response = await fetch(this.webhookUrl, {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify(payload)
             });
 
-            if (response.status === 204) {
-                console.log('✅ Discord notification sent successfully'.green);
+            if (response.ok) {
+                console.log(pc.green('✅ Discord notification sent successfully'));
                 return true;
             } else {
                 throw new Error(`Discord API returned status ${response.status}`);
             }
         } catch (error) {
-            console.log('❌ Failed to send Discord notification:'.red, error.message);
+            console.log(pc.red(`❌ Failed to send Discord notification: ${error.message}`));
             return false;
         }
     }
@@ -113,34 +114,49 @@ class DiscordNotifier {
                 embeds: [embed]
             };
 
-            await axios.post(this.webhookUrl, payload);
-            console.log('✅ Startup notification sent to Discord'.green);
+            const response = await fetch(this.webhookUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                console.log(pc.green('✅ Startup notification sent to Discord'));
+            } else {
+                console.log(pc.yellow(`⚠️ Failed to send startup notification: Discord API status ${response.status}`));
+            }
         } catch (error) {
-            console.log('⚠️ Failed to send startup notification:'.yellow, error.message);
+            console.log(pc.yellow(`⚠️ Failed to send startup notification: ${error.message}`));
         }
     }
 
     async testWebhook() {
         try {
-            console.log('🔄 Testing Discord webhook...'.yellow);
+            console.log(pc.yellow('🔄 Testing Discord webhook...'));
             
             const testPayload = {
                 username: "BitoraBackup Bot",
                 content: "🧪 **Test Message** - BitoraBackup bot webhook is working correctly!"
             };
 
-            const response = await axios.post(this.webhookUrl, testPayload);
+            const response = await fetch(this.webhookUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(testPayload)
+            });
             
-            if (response.status === 204) {
-                console.log('✅ Discord webhook test successful'.green);
+            if (response.ok) {
+                console.log(pc.green('✅ Discord webhook test successful'));
                 return true;
             }
             return false;
         } catch (error) {
-            console.log('❌ Discord webhook test failed:'.red, error.message);
+            console.log(pc.red(`❌ Discord webhook test failed: ${error.message}`));
             return false;
         }
     }
 }
-
-module.exports = DiscordNotifier;

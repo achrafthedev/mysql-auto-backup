@@ -281,7 +281,7 @@ Run separate BitoraBackup instances for different databases:
 
 ### Software Requirements
 - **XAMPP** (or similar with MySQL)
-- **Node.js** (auto-installed by script)
+- **Node.js (v18.0.0+)**
 - **Discord account** for notifications
 
 ### Database Requirements
@@ -346,18 +346,10 @@ MIT License - Use freely for personal and commercial projects.
 🌐 [Achraf](https://github.com/achrafthedev)
 
 **Company:** Bitora  
-🌐 [Bitora.com](https://bitora.fr/)
+🌐 [Bitora.fr](https://bitora.fr/)
 
 **Open Source:** Available on GitHub  
 🐙 [github.com/achrafthedev/mysql-auto-backup](https://github.com/achrafthedev/mysql-auto-backup)
-
--- SUPPORT and Fork.
-
-**Foxibytes LTD Developers:** Available on GitHub  
-🐙 [MrSmith](https://github.com/MrSmith)
-
-**Foxibytes LTD:** Website  
-🐙 [Foxibytes](https://foxibytes.com/)
 ---
 
 <div align="center">

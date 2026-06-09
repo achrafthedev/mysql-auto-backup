@@ -1,58 +1,57 @@
-const readline = require('readline');
-const colors = require('colors');
+import readline from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
+import pc from 'picocolors';
 
-class InputHandler {
+export default class InputHandler {
     constructor() {
         this.rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
+            input,
+            output
         });
     }
 
-    question(query) {
-        return new Promise((resolve) => {
-            this.rl.question(query, resolve);
-        });
+    async question(query) {
+        return this.rl.question(query);
     }
 
     async getDatabaseConfig() {
-        console.log('\n🔧 Database Configuration Setup'.cyan.bold);
-        console.log('═'.repeat(40).cyan);
+        console.log(pc.cyan(pc.bold('\n🔧 Database Configuration Setup')));
+        console.log(pc.cyan('═'.repeat(40)));
         
         const config = {};
         
-        config.host = await this.question('📊 Database Host (default: localhost): '.yellow) || 'localhost';
+        config.host = await this.question(pc.yellow('📊 Database Host (default: localhost): ')) || 'localhost';
         
-        const portInput = await this.question('🔌 Database Port (default: 3306): '.yellow);
-        config.port = parseInt(portInput) || 3306;
+        const portInput = await this.question(pc.yellow('🔌 Database Port (default: 3306): '));
+        config.port = parseInt(portInput, 10) || 3306;
         
-        config.user = await this.question('👤 Database Username: '.yellow);
-        config.password = await this.question('🔐 Database Password (leave empty if none): '.yellow) || '';
-        config.database = await this.question('🗄️  Database Name: '.yellow);
+        config.user = await this.question(pc.yellow('👤 Database Username: '));
+        config.password = await this.question(pc.yellow('🔐 Database Password (leave empty if none): ')) || '';
+        config.database = await this.question(pc.yellow('🗄️  Database Name: '));
 
         return config;
     }
 
     async getDiscordConfig() {
-        console.log('\n🎮 Discord Configuration Setup'.cyan.bold);
-        console.log('═'.repeat(40).cyan);
+        console.log(pc.cyan(pc.bold('\n🎮 Discord Configuration Setup')));
+        console.log(pc.cyan('═'.repeat(40)));
         
-        const webhookUrl = await this.question('🔗 Discord Webhook URL: '.yellow);
+        const webhookUrl = await this.question(pc.yellow('🔗 Discord Webhook URL: '));
         
         return { webhookUrl };
     }
 
     async getGoFileConfig() {
-        console.log('\n🔗 GoFile.io Configuration Setup'.cyan.bold);
-        console.log('═'.repeat(40).cyan);
+        console.log(pc.cyan(pc.bold('\n🔗 GoFile.io Configuration Setup')));
+        console.log(pc.cyan('═'.repeat(40)));
         
-        console.log('ℹ️  GoFile.io API Token Information:'.blue);
-        console.log('   • Get your API token from: https://gofile.io/myProfile'.white);
-        console.log('   • Free accounts can upload files but with limitations'.white);
-        console.log('   • Premium accounts get full API access and features'.white);
-        console.log('   • You can leave this blank to use guest uploads'.white);
+        console.log(pc.blue('ℹ️  GoFile.io API Token Information:'));
+        console.log(pc.white('   • Get your API token from: https://gofile.io/myProfile'));
+        console.log(pc.white('   • Free accounts can upload files but with limitations'));
+        console.log(pc.white('   • Premium accounts get full API access and features'));
+        console.log(pc.white('   • You can leave this blank to use guest uploads'));
         
-        const apiToken = await this.question('🔑 GoFile.io API Token (optional): '.yellow);
+        const apiToken = await this.question(pc.yellow('🔑 GoFile.io API Token (optional): '));
         
         return { 
             apiToken: apiToken || null,
@@ -61,16 +60,16 @@ class InputHandler {
     }
 
     async getBackupConfig() {
-        console.log('\n⚙️  Backup Configuration Setup'.cyan.bold);
-        console.log('═'.repeat(40).cyan);
+        console.log(pc.cyan(pc.bold('\n⚙️  Backup Configuration Setup')));
+        console.log(pc.cyan('═'.repeat(40)));
         
-        console.log('⏰ Schedule options:'.blue);
-        console.log('  1. Every 12 hours (default)'.white);
-        console.log('  2. Every 6 hours'.white);
-        console.log('  3. Every 24 hours'.white);
-        console.log('  4. Custom cron expression'.white);
+        console.log(pc.blue('⏰ Schedule options:'));
+        console.log(pc.white('  1. Every 12 hours (default)'));
+        console.log(pc.white('  2. Every 6 hours'));
+        console.log(pc.white('  3. Every 24 hours'));
+        console.log(pc.white('  4. Custom cron expression'));
         
-        const scheduleChoice = await this.question('Choose schedule (1-4, default: 1): '.yellow) || '1';
+        const scheduleChoice = await this.question(pc.yellow('Choose schedule (1-4, default: 1): ')) || '1';
         
         let schedule;
         switch (scheduleChoice) {
@@ -84,16 +83,16 @@ class InputHandler {
                 schedule = '0 0 * * *';
                 break;
             case '4':
-                schedule = await this.question('Enter cron expression: '.yellow);
+                schedule = await this.question(pc.yellow('Enter cron expression: '));
                 break;
             default:
                 schedule = '0 */12 * * *';
         }
 
-        const maxBackupsInput = await this.question('📦 Maximum backups to keep (default: 10): '.yellow);
-        const maxBackups = parseInt(maxBackupsInput) || 10;
+        const maxBackupsInput = await this.question(pc.yellow('📦 Maximum backups to keep (default: 10): '));
+        const maxBackups = parseInt(maxBackupsInput, 10) || 10;
 
-        const cleanupInput = await this.question('🧹 Auto cleanup old backups? (y/N): '.yellow);
+        const cleanupInput = await this.question(pc.yellow('🧹 Auto cleanup old backups? (y/N): '));
         const cleanupOldBackups = cleanupInput.toLowerCase() === 'y';
 
         return {
@@ -104,32 +103,32 @@ class InputHandler {
     }
 
     async confirmConfig(config) {
-        console.log('\n📋 Configuration Summary'.cyan.bold);
-        console.log('═'.repeat(50).cyan);
+        console.log(pc.cyan(pc.bold('\n📋 Configuration Summary')));
+        console.log(pc.cyan('═'.repeat(50)));
         
-        console.log('Database:'.yellow.bold);
-        console.log(`  Host: ${config.database.host}:${config.database.port}`.white);
-        console.log(`  User: ${config.database.user}`.white);
-        console.log(`  Database: ${config.database.database}`.white);
+        console.log(pc.yellow(pc.bold('Database:')));
+        console.log(pc.white(`  Host: ${config.database.host}:${config.database.port}`));
+        console.log(pc.white(`  User: ${config.database.user}`));
+        console.log(pc.white(`  Database: ${config.database.database}`));
         
-        console.log('\nDiscord:'.yellow.bold);
-        console.log(`  Webhook: ${config.discord.webhookUrl.substring(0, 50)}...`.white);
+        console.log(pc.yellow(pc.bold('\nDiscord:')));
+        console.log(pc.white(`  Webhook: ${config.discord.webhookUrl.substring(0, 50)}...`));
         
-        console.log('\nGoFile.io:'.yellow.bold);
+        console.log(pc.yellow(pc.bold('\nGoFile.io:')));
         if (config.gofile.apiToken) {
-            console.log(`  API Token: ${config.gofile.apiToken.substring(0, 8)}...`.white);
-            console.log(`  Account Type: Premium/Authenticated`.green);
+            console.log(pc.white(`  API Token: ${config.gofile.apiToken.substring(0, 8)}...`));
+            console.log(pc.green(`  Account Type: Premium/Authenticated`));
         } else {
-            console.log(`  API Token: Not provided (Guest uploads)`.gray);
-            console.log(`  Account Type: Guest`.yellow);
+            console.log(pc.gray(`  API Token: Not provided (Guest uploads)`));
+            console.log(pc.yellow(`  Account Type: Guest`));
         }
         
-        console.log('\nBackup:'.yellow.bold);
-        console.log(`  Schedule: ${config.backup.schedule}`.white);
-        console.log(`  Max Backups: ${config.backup.maxBackups}`.white);
-        console.log(`  Auto Cleanup: ${config.backup.cleanupOldBackups}`.white);
+        console.log(pc.yellow(pc.bold('\nBackup:')));
+        console.log(pc.white(`  Schedule: ${config.backup.schedule}`));
+        console.log(pc.white(`  Max Backups: ${config.backup.maxBackups}`));
+        console.log(pc.white(`  Auto Cleanup: ${config.backup.cleanupOldBackups}`));
         
-        const confirmation = await this.question('\n✅ Confirm configuration? (Y/n): '.green);
+        const confirmation = await this.question(pc.green('\n✅ Confirm configuration? (Y/n): '));
         return confirmation.toLowerCase() !== 'n';
     }
 
@@ -138,8 +137,6 @@ class InputHandler {
     }
 
     async waitForEnter(message = 'Press Enter to continue...') {
-        await this.question(`\n${message}`.gray);
+        await this.question(pc.gray(`\n${message}`));
     }
 }
-
-module.exports = InputHandler;

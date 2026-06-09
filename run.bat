@@ -11,7 +11,7 @@ echo        Database Backup Automation System
 echo ====================================================
 echo.
 
-if not exist ecosystem.config.js (
+if not exist ecosystem.config.cjs (
     color 0C
     echo [ERROR] SETUP REQUIRED
     echo ----------------------------------------------------
@@ -136,7 +136,7 @@ if "%MENU_TYPE%"=="running" (
     echo ====================================================
     echo.
     echo [INFO] Starting BitoraBackup with existing configuration...
-    call pm2 start ecosystem.config.js
+    call pm2 start ecosystem.config.cjs
     echo.
     if %errorlevel% equ 0 (
         echo [SUCCESS] BitoraBackup started successfully

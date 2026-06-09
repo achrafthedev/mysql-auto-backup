@@ -3,7 +3,7 @@ title BitoraBackup
 
 echo Starting BitoraBackup...
 
-if not exist ecosystem.config.js (
+if not exist ecosystem.config.cjs (
     echo ERROR: PM2 config not found
     echo Please run install.bat first
     pause
@@ -27,7 +27,7 @@ echo Starting configuration...
 node src/app.js
 
 echo Starting with PM2...
-pm2 start ecosystem.config.js
+pm2 start ecosystem.config.cjs
 
 pm2 status BitoraBackup
 pause

@@ -16,6 +16,45 @@ timeout 2 >nul
 cls
 echo.
 echo ====================================================
+echo                   PRE-REQUISITES CHECK
+echo ====================================================
+echo.
+
+:: Check if Node.js is installed
+node -v >nul 2>&1
+if %errorlevel% neq 0 (
+    color 0C
+    echo [ERROR] Node.js is not installed.
+    echo Please download and install Node.js (v18.0.0 or higher) from https://nodejs.org/
+    echo.
+    pause
+    exit /b 1
+)
+
+:: Get Node.js major version
+for /f "tokens=1,2,3 delims=v." %%a in ('node -v') do (
+    set /a NODE_MAJOR=%%a
+)
+
+echo [INFO] Found Node.js version: v%NODE_MAJOR%
+
+if %NODE_MAJOR% LSS 18 (
+    color 0C
+    echo [ERROR] BitoraBackup requires Node.js v18.0.0 or higher.
+    echo Please update Node.js from https://nodejs.org/ before continuing.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo [SUCCESS] Node.js version check passed.
+echo.
+echo Press any key to continue...
+pause >nul
+
+cls
+echo.
+echo ====================================================
 echo                   STEP 1 of 5
 echo          Installing Node.js Dependencies
 echo ====================================================
@@ -94,25 +133,25 @@ echo                   STEP 4 of 5
 echo          Generating PM2 Configuration
 echo ====================================================
 echo.
-echo [INFO] Creating ecosystem.config.js file...
+echo [INFO] Creating ecosystem.config.cjs file...
 echo.
-echo module.exports = { > ecosystem.config.js
-echo   apps: [{ >> ecosystem.config.js
-echo     name: "BitoraBackup", >> ecosystem.config.js
-echo     script: "./src/app.js", >> ecosystem.config.js
-echo     instances: 1, >> ecosystem.config.js
-echo     autorestart: true, >> ecosystem.config.js
-echo     watch: false, >> ecosystem.config.js
-echo     max_memory_restart: "500M", >> ecosystem.config.js
-echo     error_file: "./logs/error.log", >> ecosystem.config.js
-echo     out_file: "./logs/output.log", >> ecosystem.config.js
-echo     log_file: "./logs/combined.log", >> ecosystem.config.js
-echo     time: true >> ecosystem.config.js
-echo   }] >> ecosystem.config.js
-echo }; >> ecosystem.config.js
+echo module.exports = { > ecosystem.config.cjs
+echo   apps: [{ >> ecosystem.config.cjs
+echo     name: "BitoraBackup", >> ecosystem.config.cjs
+echo     script: "./src/app.js", >> ecosystem.config.cjs
+echo     instances: 1, >> ecosystem.config.cjs
+echo     autorestart: true, >> ecosystem.config.cjs
+echo     watch: false, >> ecosystem.config.cjs
+echo     max_memory_restart: "500M", >> ecosystem.config.cjs
+echo     error_file: "./logs/error.log", >> ecosystem.config.cjs
+echo     out_file: "./logs/output.log", >> ecosystem.config.cjs
+echo     log_file: "./logs/combined.log", >> ecosystem.config.cjs
+echo     time: true >> ecosystem.config.cjs
+echo   }] >> ecosystem.config.cjs
+echo }; >> ecosystem.config.cjs
 echo.
 echo [SUCCESS] PM2 configuration file created
-echo [INFO] Configuration file: ecosystem.config.js
+echo [INFO] Configuration file: ecosystem.config.cjs
 echo.
 echo Press any key to continue to final step...
 pause >nul
@@ -131,13 +170,13 @@ echo ----------------------
 echo [OK] Node.js dependencies
 echo [OK] PM2 process manager
 echo [OK] Application directories
-echo [OK] PM2 configuration file
+echo [OK] PM2 configuration file (ecosystem.config.cjs)
 echo.
 echo Files created:
 echo --------------
-echo - ecosystem.config.js  (PM2 configuration)
-echo - logs/                (Application logs)
-echo - backups/             (Database backups)
+echo - ecosystem.config.cjs  (PM2 configuration)
+echo - logs/                 (Application logs)
+echo - backups/              (Database backups)
 echo.
 echo Next steps:
 echo -----------

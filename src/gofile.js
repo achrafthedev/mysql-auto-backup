@@ -1,9 +1,8 @@
-const axios = require('axios');
-const FormData = require('form-data');
-const fs = require('fs');
-const colors = require('colors');
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import pc from 'picocolors';
 
-class GoFileUploader {
+export default class GoFileUploader {
     constructor(apiToken = null) {
         this.baseUrl = 'https://api.gofile.io';
         this.uploadUrl = 'https://upload.gofile.io/uploadfile';
@@ -24,13 +23,17 @@ class GoFileUploader {
     }
 
     async uploadFile(filePath, folderId = null) {
+        let timeoutId;
         try {
-            const fileName = require('path').basename(filePath);
+            const fileName = path.basename(filePath);
             
-            console.log(`🔄 Uploading ${fileName} to GoFile...`.yellow);
+            console.log(pc.yellow(`🔄 Uploading ${fileName} to GoFile...`));
+            
+            const fileBuffer = await readFile(filePath);
+            const fileBlob = new Blob([fileBuffer], { type: 'application/octet-stream' });
             
             const form = new FormData();
-            form.append('file', fs.createReadStream(filePath));
+            form.append('file', fileBlob, fileName);
             
             // Add folderId if provided (for authenticated uploads)
             if (folderId) {
@@ -38,33 +41,43 @@ class GoFileUploader {
             }
             
             const headers = {
-                ...form.getHeaders(),
                 ...this.getAuthHeaders()
             };
 
-            const response = await axios.post(this.uploadUrl, form, {
-                headers: headers,
-                timeout: 300000, // 5 minutes timeout
-            });
+            // Setup AbortController for a 5-minute request timeout
+            const controller = new AbortController();
+            timeoutId = setTimeout(() => controller.abort(), 300000);
 
-            if (response.data.status === 'ok') {
-                const downloadLink = response.data.data.downloadPage;
-                console.log('✅ File uploaded successfully to GoFile'.green);
-                console.log('🔗 Download link:'.cyan, downloadLink);
+            const response = await fetch(this.uploadUrl, {
+                method: 'POST',
+                headers: headers,
+                body: form,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+
+            const result = await response.json();
+
+            if (result.status === 'ok') {
+                const downloadLink = result.data.downloadPage;
+                console.log(pc.green('✅ File uploaded successfully to GoFile'));
+                console.log(pc.cyan(`🔗 Download link: ${downloadLink}`));
                 
                 return {
                     success: true,
                     downloadLink: downloadLink,
-                    fileId: response.data.data.fileId,
+                    fileId: result.data.fileId,
                     fileName: fileName,
-                    guestToken: response.data.data.guestToken || null,
-                    parentFolder: response.data.data.parentFolder || null
+                    guestToken: result.data.guestToken || null,
+                    parentFolder: result.data.parentFolder || null
                 };
             } else {
-                throw new Error('Upload failed: ' + (response.data.error || response.data.status));
+                throw new Error('Upload failed: ' + (result.error || result.status));
             }
         } catch (error) {
-            console.log('❌ GoFile upload failed:'.red, error.message);
+            if (timeoutId) clearTimeout(timeoutId);
+            console.log(pc.red(`❌ GoFile upload failed: ${error.message}`));
             return {
                 success: false,
                 error: error.message
@@ -78,7 +91,7 @@ class GoFileUploader {
                 throw new Error('API token required for folder creation');
             }
 
-            console.log('📁 Creating folder on GoFile...'.yellow);
+            console.log(pc.yellow('📁 Creating folder on GoFile...'));
             
             const payload = {
                 parentFolderId: parentFolderId
@@ -88,25 +101,29 @@ class GoFileUploader {
                 payload.folderName = folderName;
             }
 
-            const response = await axios.post(`${this.baseUrl}/contents/createFolder`, payload, {
+            const response = await fetch(`${this.baseUrl}/contents/createFolder`, {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     ...this.getAuthHeaders()
-                }
+                },
+                body: JSON.stringify(payload)
             });
 
-            if (response.data.status === 'ok') {
-                console.log('✅ Folder created successfully'.green);
+            const result = await response.json();
+
+            if (result.status === 'ok') {
+                console.log(pc.green('✅ Folder created successfully'));
                 return {
                     success: true,
-                    folderId: response.data.data.id,
-                    folderName: response.data.data.name
+                    folderId: result.data.id,
+                    folderName: result.data.name
                 };
             } else {
-                throw new Error('Folder creation failed: ' + (response.data.error || response.data.status));
+                throw new Error('Folder creation failed: ' + (result.error || result.status));
             }
         } catch (error) {
-            console.log('❌ Folder creation failed:'.red, error.message);
+            console.log(pc.red(`❌ Folder creation failed: ${error.message}`));
             return {
                 success: false,
                 error: error.message
@@ -117,31 +134,34 @@ class GoFileUploader {
     async deleteContent(contentIds) {
         try {
             if (!this.apiToken) {
-                console.log('⚠️ No API token provided, cannot delete files'.yellow);
+                console.log(pc.yellow('⚠️ No API token provided, cannot delete files'));
                 return false;
             }
 
-            console.log('🗑️ Deleting content from GoFile...'.yellow);
+            console.log(pc.yellow('🗑️ Deleting content from GoFile...'));
             
             const payload = {
                 contentsId: Array.isArray(contentIds) ? contentIds.join(',') : contentIds
             };
 
-            const response = await axios.delete(`${this.baseUrl}/contents`, {
+            const response = await fetch(`${this.baseUrl}/contents`, {
+                method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
                     ...this.getAuthHeaders()
                 },
-                data: payload
+                body: JSON.stringify(payload)
             });
             
-            if (response.data.status === 'ok') {
-                console.log('✅ Content deleted from GoFile successfully'.green);
+            const result = await response.json();
+            
+            if (result.status === 'ok') {
+                console.log(pc.green('✅ Content deleted from GoFile successfully'));
                 return true;
             }
             return false;
         } catch (error) {
-            console.log('⚠️ Failed to delete content from GoFile:'.yellow, error.message);
+            console.log(pc.yellow(`⚠️ Failed to delete content from GoFile: ${error.message}`));
             return false;
         }
     }
@@ -152,17 +172,19 @@ class GoFileUploader {
                 throw new Error('API token required');
             }
 
-            const response = await axios.get(`${this.baseUrl}/accounts/getid`, {
+            const response = await fetch(`${this.baseUrl}/accounts/getid`, {
                 headers: this.getAuthHeaders()
             });
 
-            if (response.data.status === 'ok') {
-                return response.data.data.id;
+            const result = await response.json();
+
+            if (result.status === 'ok') {
+                return result.data.id;
             } else {
                 throw new Error('Failed to get account ID');
             }
         } catch (error) {
-            console.log('❌ Failed to get account ID:'.red, error.message);
+            console.log(pc.red(`❌ Failed to get account ID: ${error.message}`));
             return null;
         }
     }
@@ -174,20 +196,20 @@ class GoFileUploader {
                 throw new Error('Could not get account ID');
             }
 
-            const response = await axios.get(`${this.baseUrl}/accounts/${accountId}`, {
+            const response = await fetch(`${this.baseUrl}/accounts/${accountId}`, {
                 headers: this.getAuthHeaders()
             });
 
-            if (response.data.status === 'ok') {
-                return response.data.data;
+            const result = await response.json();
+
+            if (result.status === 'ok') {
+                return result.data;
             } else {
                 throw new Error('Failed to get account info');
             }
         } catch (error) {
-            console.log('❌ Failed to get account info:'.red, error.message);
+            console.log(pc.red(`❌ Failed to get account info: ${error.message}`));
             return null;
         }
     }
 }
-
-module.exports = GoFileUploader;
