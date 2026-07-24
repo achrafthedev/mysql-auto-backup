@@ -18,7 +18,7 @@
   "license": "MIT",
   "dependencies": {
     "mysql2": "^3.11.0",
-    "node-cron": "^3.0.3",
+    "node-cron": "^4.6.0",
     "picocolors": "^1.1.1"
   }
 }
